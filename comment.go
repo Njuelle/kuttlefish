@@ -3,14 +3,17 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html/template"
-	"io/ioutil"
+	"strings"
 )
 
 // Comment is a Github comment on a PR or Issue
 type Comment struct {
-	Repo       string
-	User       string `json:"user.login"`
+	Repo string
+	User struct {
+		Login string `json:"login"`
+	} `json:"user"`
 	Token      string
 	ThreadID   int
 	ThreadType int
@@ -35,13 +38,13 @@ func (c *Comment) AddBodyFromFile(fn string) (*Comment, error) {
 		return nil, err
 	}
 
-	buf := &bytes.Buffer{}
-	t.Execute(buf, c)
-
-	c.Body, err = ioutil.ReadAll(buf)
-	if err != nil {
+	var tpl bytes.Buffer
+	if err = t.Execute(&tpl, c); err != nil {
 		return nil, err
 	}
+
+	replacer := strings.NewReplacer("\n", "", "\"", "'") // Minify HTML
+	c.Body = []byte(fmt.Sprintf(`{"body": "%s"}`, replacer.Replace(tpl.String())))
 
 	return c, nil
 }
@@ -53,7 +56,7 @@ func (c *Comment) SetUser() (*Comment, error) {
 		return nil, err
 	}
 
-	c.User = user
+	c.User.Login = user
 
 	return c, nil
 }
@@ -87,9 +90,9 @@ func (c *Comment) getPreviousPost() (*Comment, error) {
 
 	var previousComment *Comment
 
-	for _, value := range *comments {
-		if value.User == c.User {
-			previousComment = value
+	for i := range comments {
+		if comments[i].User.Login == c.User.Login {
+			previousComment = comments[i]
 		}
 	}
 

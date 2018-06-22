@@ -23,5 +23,8 @@ func main() {
 	}
 
 	c.SetUser()
-	c.Comment()
+	err = c.Comment()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }

@@ -29,26 +29,28 @@ func getUser(token string) (string, error) {
 }
 
 // getAllCommentsFromPR return all comments from PR
-func getAllCommentsFromPR(token string, repo string, prID int) (*map[int]*Comment, error) {
-	body, err := httpClient(token, "GET", fmt.Sprintf("https://api.github.com/repos/%s/pulls/%d/comments", repo, prID))
+func getAllCommentsFromPR(token string, repo string, prID int) ([]*Comment, error) {
+	body, err := httpClient(token, "GET", fmt.Sprintf("https://api.github.com/repos/%s/issues/%d/comments", repo, prID))
 	if err != nil {
 		return nil, err
 	}
 
-	comments := make(map[int]*Comment)
+	var comments []*Comment
 
 	err = json.Unmarshal(body, &comments)
 	if err != nil {
 		return nil, err
 	}
 
-	return &comments, nil
+	return comments, nil
 
 }
 
 // UpdateComment update previous comment on a Github PR
 func UpdateComment(nc *Comment, oc *Comment) error {
-	req, err := http.NewRequest("PATCH", fmt.Sprintf("https://api.github.com/repos/%s/pulls/comments/%d", nc.Repo, oc.ID), bytes.NewBuffer(nc.Body))
+	b := bytes.NewReader(nc.Body)
+
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("https://api.github.com/repos/%s/issues/comments/%d", nc.Repo, oc.ID), b)
 	if err != nil {
 		return err
 	}
@@ -57,17 +59,21 @@ func UpdateComment(nc *Comment, oc *Comment) error {
 	req.SetBasicAuth(nc.Token, "x-oauth-basic")
 
 	client := http.Client{}
-	_, err = client.Do(req)
+	resp, _ := client.Do(req)
 	if err != nil {
 		return err
 	}
+
+	test, _ := ioutil.ReadAll(resp.Body)
+	print(string(test))
 
 	return nil
 }
 
 // CreateComment create comment on a Github PR
 func CreateComment(nc *Comment) error {
-	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.github.com/repos/%s/pulls/%d/comments", nc.Repo, nc.ThreadID), bytes.NewBuffer(nc.Body))
+	b := bytes.NewReader(nc.Body)
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.github.com/repos/%s/issues/%d/comments", nc.Repo, nc.ThreadID), b)
 	if err != nil {
 		return err
 	}
